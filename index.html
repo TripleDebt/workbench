@@ -747,8 +747,12 @@ function renderModal(){
  if(!S.modal){el.innerHTML='';return}
  const M={project:mProject,newVideo:mNewVideo,log:mLog,card:mCard,sched:mSched,pub:mPub,ytFilter:mYtFilter,day:mDay,event:mEvent,worship:mWorship,calFilter:mCalFilter,countdown:mCountdown,list:mList,noteEdit:mNoteEdit,confirm:mConfirm,book:mBook,rdFinish:mRdFinish,marginsFin:mMarginsFin,planPreview:mPlanPreview,bookEdit:mBookEdit,serEdit:mSerEdit,ibEdit:mIbEdit,consEdit:mConsEdit,catColor:mCatColor,logEntry:mLogEntry,star:mStar,reopen:mReopen,editProject:mEditProject,selah:mSelah};
  const m=S.modal;
+ const same=el._m===m;const ov0=el.querySelector('.overlay'),md0=el.querySelector('.modal');const st=same&&ov0?[ov0.scrollTop,md0?md0.scrollTop:0]:null;
  el.innerHTML=`<div class="overlay" data-act="closeModal"><div class="modal ${m.narrow?'narrow':''}" role="dialog" aria-modal="true" data-act="noop">${M[m.type](m)}</div></div>`;
- const f=el.querySelector('[autofocus]');if(f)f.focus();
+ el._m=m;
+ /* only jump to the first field when a popup first opens, not when it redraws after a tap (e.g. picking a tag) */
+ if(st){const ov=el.querySelector('.overlay'),md=el.querySelector('.modal');if(ov)ov.scrollTop=st[0];if(md)md.scrollTop=st[1]}
+ else{const f=el.querySelector('[autofocus]');if(f)f.focus()}
 }
 function setupBars(){document.querySelectorAll('.nextrow').forEach((row,i)=>{const wall=row.closest('.wall');if(!wall)return;let el=row;let board=null;const all=[...wall.querySelectorAll('.board')];board=all.find(b=>row.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING);if(!board)return;
  const bar=document.createElement('div');bar.className='sbar';bar.innerHTML='<div class="thumb"></div>';board.after(bar);row._bar=bar;bar._row=row;syncBar(row);row.addEventListener('scroll',()=>syncBar(row),{passive:true});
