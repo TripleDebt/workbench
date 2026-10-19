@@ -380,6 +380,7 @@ textarea{min-height:100px;resize:vertical;line-height:1.5}
 .uprow.done .utitle{text-decoration:line-through;opacity:.6}
 @media (max-width:600px){.uprow .utime{width:58px;font-size:12px}.uppanel{padding:6px 10px 10px}.uprow .lbadge{display:none}}
 .bkbar .bkacts{display:flex;gap:8px}
+@media (min-width:821px){.signbar{display:none}}
 
 .thead{align-items:flex-end}
 .teyebrow{font:600 12px/1 var(--sans,inherit);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
@@ -732,7 +733,7 @@ function render(){
   <button class="nav-btn${navAnim('search')}" data-act="go" data-v="search" ${S.view==='search'?'aria-current="page"':''}>${ic('search')}<span>Search</span></button>
  <button class="nav-btn${navAnim('settings')}" data-act="go" data-v="settings" ${S.view==='settings'?'aria-current="page"':''}>${ic('gear')}<span>Settings</span></button>
  <button class="undobtn" data-act="undoBtn" ${HIST.length?'':'disabled'} title="${HIST.length?esc('Undo: '+HIST[HIST.length-1].l+' (Ctrl+Z)'):'Nothing to undo'}">${ic('undo',15)}<span class="undotx"><span>Undo${HIST.length?' ('+HIST.length+')':''}</span>${HIST.length?`<span class="undowhat">${esc(HIST[HIST.length-1].l)}</span>`:''}</span></button><div class="sync" id="sync">${syncHTML()}</div></nav>
- <main>${bkDue()?`<div class="testbar bkbar"><span><b>Time for a backup.</b> ${D.settings.prefs.lastBackup?'Your last one was '+fmtLong(ds(new Date(D.settings.prefs.lastBackup)))+'.':'You haven’t saved one yet.'}</span><span class="bkacts"><button class="btn sm" data-act="bkLater">Not now</button><button class="btn sm primary" data-act="exportData">Save a backup</button></span></div>`:''}${testOn?`<div class="testbar"><span><b>Test mode is on.</b> Anything you add now is test data and stays out of backups.</span><button class="btn sm" data-act="testManage">Manage</button></div>`:''}${views[S.view]()}</main></div>`;
+ <main>${syncState==='signin'?`<div class="testbar bkbar signbar"><span><b>Not signed in.</b> Your changes are saved on this device only.</span><span class="bkacts"><button class="btn sm primary" data-act="signIn">Sign in to sync</button></span></div>`:''}${bkDue()?`<div class="testbar bkbar"><span><b>Time for a backup.</b> ${D.settings.prefs.lastBackup?'Your last one was '+fmtLong(ds(new Date(D.settings.prefs.lastBackup)))+'.':'You haven’t saved one yet.'}</span><span class="bkacts"><button class="btn sm" data-act="bkLater">Not now</button><button class="btn sm primary" data-act="exportData">Save a backup</button></span></div>`:''}${testOn?`<div class="testbar"><span><b>Test mode is on.</b> Anything you add now is test data and stays out of backups.</span><button class="btn sm" data-act="testManage">Manage</button></div>`:''}${views[S.view]()}</main></div>`;
  renderModal();
  setupBars();
 }
@@ -1854,7 +1855,7 @@ document.addEventListener('keydown',e=>{
 });
 SNAP=snapNow();
 render();
-initSync().then(()=>{if(S.view==='settings')render()});
+initSync().then(()=>{if(S.view==='settings'||syncState==='signin')render()});
 window.addEventListener('wb-auth',e=>{if(e.detail&&e.detail.signedIn){initSync().then(()=>render())}else{location.reload()}});
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
 setInterval(()=>{if(!S.modal&&(S.view==='calendar'||S.view==='schedule')){const a=document.activeElement;if(!a||a===document.body)render()}},60000);
