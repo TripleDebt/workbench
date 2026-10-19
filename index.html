@@ -656,10 +656,13 @@ function tock(){playSound(curSound())}
 const curSound2=()=>{const P=D.settings.prefs;if(!P.sound2)return null;return SOUNDS[P.soundName2]?P.soundName2:null};
 function btnTarget(t){if(!t||!t.closest)return null;if(t.matches&&t.matches('input[type=checkbox]'))return t;const b=t.closest('button,[role=button],a[href]');if(!b||b.disabled||b.closest('.nav-btn'))return null;if(/^sound2?Pick$/.test(b.dataset.act||''))return null;return b}
 Object.keys(SOUNDS).forEach(loadSound);
-document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.nav-btn');if(!b)return;tock();b.classList.remove('settle','release');b.classList.add('pushing')});
+let lastPT='mouse';document.addEventListener('pointerdown',e=>{lastPT=e.pointerType||'mouse'},true);
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.nav-btn');if(!b)return;if(e.pointerType!=='touch')tock();b.classList.remove('settle','release');b.classList.add('pushing')});
 ['pointercancel','pointerleave'].forEach(ev=>document.addEventListener(ev,e=>{const b=e.target.closest&&e.target.closest('.nav-btn.pushing');if(b)b.classList.remove('pushing')},true));
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('nav-btn'))tock()});
-document.addEventListener('pointerdown',e=>{if(e.button>0)return;if(btnTarget(e.target))playSound(curSound2())},true);
+document.addEventListener('pointerdown',e=>{if(e.button>0||e.pointerType==='touch')return;if(btnTarget(e.target))playSound(curSound2())},true);
+/* on touch screens, sound waits for a real tap so scrolling over a button stays silent */
+document.addEventListener('click',e=>{if(lastPT!=='touch'||!e.detail)return;if(e.target.closest&&e.target.closest('.nav-btn')){tock();return}if(btnTarget(e.target))playSound(curSound2())},true);
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat&&e.target.matches&&e.target.matches('button,[role=button],a[href]')&&btnTarget(e.target))playSound(curSound2())},true);
 
 /* ---------- ui state ---------- */
