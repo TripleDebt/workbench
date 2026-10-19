@@ -406,6 +406,25 @@ input.pdate{width:auto;max-width:170px;min-height:32px;padding:3px 8px;font-size
 button,a,label,select,input,textarea{touch-action:manipulation}
 .ehandle{touch-action:none}
 @media (pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),textarea,select{font-size:16px!important}.erow .ehandle{display:inline-flex;padding:12px 6px 12px 2px;margin-left:-6px}.erow{gap:6px}.erow .epos{width:50px!important}}
+
+/* calendar: week view */
+.calvw{gap:0}.calvw .chip{border-radius:0;min-height:40px}.calvw .chip:first-child{border-radius:999px 0 0 999px}.calvw .chip:last-child{border-radius:0 999px 999px 0;margin-left:-1px}
+.cal.week .cell{min-height:380px;padding:8px 8px 10px;gap:5px}
+.wkitems{display:flex;flex-direction:column;gap:5px;min-width:0}
+.wkhd{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.wkdow{font-size:12px;font-weight:600;color:var(--inkm);text-transform:uppercase;letter-spacing:.04em}
+.cal.week .ev{white-space:normal;align-items:flex-start;line-height:1.3;font-size:13px}
+.cal.week .ev .dot,.cal.week .ev .evcheck{margin-top:4px}
+.cal.week .ev .t,.cal.week .logmark .t,.cal.week .cdmark .t{display:inline;overflow:visible}
+.cal.week .cdmark{white-space:normal;align-self:flex-start}
+@media (max-width:820px){
+ .cal.week{grid-template-columns:1fr;min-width:0}
+ .cal.week .cell{min-height:58px;flex-direction:row;align-items:flex-start;gap:10px;padding:9px 12px}
+ .cal.week .wkhd{flex:none;width:44px;flex-direction:column;gap:2px;margin:0}
+ .cal.week .wkitems{flex:1;padding-top:4px}
+ .cal.week .dnum{width:30px;height:30px;font-size:15px}
+ .cal.week .ev{font-size:14px}
+}
 </style>
 </head>
 <body>
@@ -650,7 +669,7 @@ document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.re
 
 /* ---------- ui state ---------- */
 const now0=new Date();
-const S={view:D.settings.prefs.startToday===false?'calendar':'today',modal:null,cal:{y:now0.getFullYear(),m:now0.getMonth()},ytf:{ch:[],st:[]},open:{active:true,compItems:true,planned:false,ideas:false,done:false},schedId:null,schedEdit:false,listId:null,q:'',qtags:[],setSec:'channels'};
+const S={view:D.settings.prefs.startToday===false?'calendar':'today',modal:null,cal:{y:now0.getFullYear(),m:now0.getMonth()},calView:(()=>{try{return localStorage.getItem('wb-calview')==='week'?'week':'month'}catch(e){return 'month'}})(),wk:null,ytf:{ch:[],st:[]},open:{active:true,compItems:true,planned:false,ideas:false,done:false},schedId:null,schedEdit:false,listId:null,q:'',qtags:[],setSec:'channels'};
 const chan=id=>D.settings.channels.find(c=>c.id===id)||{id:'',name:'No channel',color:'#7A6A52',stages:[]};
 const tagOf=id=>D.settings.tags.find(t=>t.id===id);
 const proj=id=>D.projects.find(p=>p.id===id);
@@ -964,7 +983,43 @@ function vToday(){
  return head+`<div class="tgrid">${evP}${wkP||pastP}${soonP}${schP}</div>`;
 }
 setInterval(()=>{if(S.view!=='today'||S.todayD)return;const el=document.getElementById('tclock');const n=new Date();if(el)el.textContent=fmtT(pad(n.getHours())+':'+pad(n.getMinutes()));const k=nowKey();if(S.tKey&&S.tKey!==k&&!S.modal&&!(document.activeElement&&document.activeElement.matches('input,textarea')))render();S.tKey=k},20000);
+function calDayBits(d,it){
+ const cds=it.cds.map(c=>`<span class="cdmark" title="Countdown">${ic('hour',12)}<span class="t">${esc(c.title)}</span></span>`).join('');
+ const chips=[...it.events.map(ev=>{const tg=tagOf(ev.tag);const dn=(ev.doneDates||[]).includes(d);return `<span class="ev${dn?' done':''}">${dn?`<span class="evcheck" style="color:${tg?tg.color:'#7A6A52'}">${ic('check',13)}</span>`:`<span class="dot" style="background:${tg?tg.color:'#7A6A52'}"></span>`}<span class="t">${ev.time?fmtT(ev.time).replace(':00','').replace(' ','').toLowerCase()+' ':''}${esc(ev.title)}</span>${ev.star?`<span class="evstar">${ic('star',11)}</span>`:''}</span>`}),
+  ...it.recs.map(e=>{const tg=tagOf('recording');return `<span class="ev"><span class="dot" style="background:${tg?tg.color:'#C9A24A'}"></span><span class="t">Record ${esc(fullName(e))}</span></span>`})];
+ const pubs=it.pubs.map(e=>`<span class="ev" title="Publishes">${ic('clap',13)}<span class="t">${esc(fullName(e))}</span></span>`).join('');
+ const logs=it.logs.length?`<span class="logmark">${ic('check',12)}<span class="t">${it.logs.length} work session${it.logs.length>1?'s':''}</span></span>`:'';
+ return {cds,chips,pubs,logs};
+}
+const sunOf=s=>addD(s,-pd(s).getDay());
+function calViewTools(){const w=S.calView==='week';return `<div class="chips dark calvw" role="group" aria-label="Calendar view"><button class="chip" data-act="calView" data-v="month" aria-pressed="${!w}">Month</button><button class="chip" data-act="calView" data-v="week" aria-pressed="${w}">Week</button></div>`}
+function wkTitle(a,b){const A=pd(a),B=pd(b);const ma=MON[A.getMonth()].slice(0,3),mb=MON[B.getMonth()].slice(0,3);
+ if(A.getFullYear()!==B.getFullYear())return `${ma} ${A.getDate()}, ${A.getFullYear()} – ${mb} ${B.getDate()}, ${B.getFullYear()}`;
+ if(A.getMonth()!==B.getMonth())return `${ma} ${A.getDate()} – ${mb} ${B.getDate()}, ${B.getFullYear()}`;
+ return `${ma} ${A.getDate()} – ${B.getDate()}, ${B.getFullYear()}`}
+function vCalWeek(){
+ const a=S.wk||(S.wk=sunOf(today()));const b=addD(a,6);const map=itemsIn(a,b);const t=today();
+ const P=D.settings.prefs;const fon=P.hiddenTags.length||!P.showLogs||!P.showRec||!P.showPub||P.showCd===false;
+ let cells='';
+ for(let i=0;i<7;i++){
+  const d=addD(a,i);const dt=pd(d);const it=map[d]||{events:[],recs:[],pubs:[],logs:[],cds:[]};
+  const {cds,chips,pubs,logs}=calDayBits(d,it);
+  const n=chips.length;const label=`${fmtLong(d)}${n?', '+n+' event'+(n>1?'s':''):''}`;
+  cells+=`<button class="cell wkcell ${d===t?'today':''}" data-act="dayOpen" data-v="${d}" aria-label="${esc(label)}"><span class="wkhd"><span class="wkdow">${DOW[dt.getDay()]}</span><span class="dnum">${dt.getDate()}</span></span><span class="wkitems">${cds}${chips.join('')}${pubs}${logs}</span></button>`;
+ }
+ return `<div class="head"><h1>${wkTitle(a,b)}</h1><div class="tools">
+ ${calViewTools()}
+ <button class="btn icon" aria-label="Previous week" data-act="calMove" data-v="-1">${ic('left')}</button>
+ <button class="btn" data-act="calToday">Today</button>
+ <button class="btn icon" aria-label="Next week" data-act="calMove" data-v="1">${ic('right')}</button>
+ <button class="btn icon" aria-label="Filter" data-act="calFilter">${ic('filter')}${fon?'<span>On</span>':''}</button>
+ <button class="btn" data-act="worshipOpen">Worship Team</button>
+ <button class="btn icon starbtn" aria-label="Starred dates" title="Starred dates" data-act="starOpen">${ic('star')}</button>
+ <button class="btn primary" data-act="eventNew">${ic('plus')}<span>New event</span></button></div></div>
+ <div class="calwrap"><div class="cal week">${cells}</div></div>${vUpcoming()}`;
+}
 function vCalendar(){
+ if(S.calView==='week')return vCalWeek();
  const {y,m}=S.cal;const first=new Date(y,m,1);const dim=new Date(y,m+1,0).getDate();
  const total=Math.ceil((first.getDay()+dim)/7)*7;const start=new Date(y,m,1-first.getDay());
  const a=ds(start);const b=addD(a,total-1);const map=itemsIn(a,b);const t=today();
@@ -972,16 +1027,13 @@ function vCalendar(){
  let cells='';
  for(let i=0;i<total;i++){
   const d=addD(a,i);const dt=pd(d);const it=map[d]||{events:[],recs:[],pubs:[],logs:[],cds:[]};
-  const cds=it.cds.map(c=>`<span class="cdmark" title="Countdown">${ic('hour',12)}<span class="t">${esc(c.title)}</span></span>`).join('');
-  const chips=[...it.events.map(ev=>{const tg=tagOf(ev.tag);const dn=(ev.doneDates||[]).includes(d);return `<span class="ev${dn?' done':''}">${dn?`<span class="evcheck" style="color:${tg?tg.color:'#7A6A52'}">${ic('check',13)}</span>`:`<span class="dot" style="background:${tg?tg.color:'#7A6A52'}"></span>`}<span class="t">${ev.time?fmtT(ev.time).replace(':00','').replace(' ','').toLowerCase()+' ':''}${esc(ev.title)}</span>${ev.star?`<span class="evstar">${ic('star',11)}</span>`:''}</span>`}),
-   ...it.recs.map(e=>{const tg=tagOf('recording');return `<span class="ev"><span class="dot" style="background:${tg?tg.color:'#C9A24A'}"></span><span class="t">Record ${esc(fullName(e))}</span></span>`})];
+  const {cds,chips,pubs,logs}=calDayBits(d,it);
   const shown=chips.slice(0,3).join('')+(chips.length>3?`<span class="more">+${chips.length-3} more</span>`:'');
-  const pubs=it.pubs.map(e=>`<span class="ev" title="Publishes">${ic('clap',13)}<span class="t">${esc(fullName(e))}</span></span>`).join('');
-  const logs=it.logs.length?`<span class="logmark">${ic('check',12)}<span class="t">${it.logs.length} work session${it.logs.length>1?'s':''}</span></span>`:'';
   const label=`${fmtLong(d)}${chips.length?', '+chips.length+' event'+(chips.length>1?'s':''):''}`;
   cells+=`<button class="cell ${dt.getMonth()!==m?'out':''} ${d===t?'today':''}" data-act="dayOpen" data-v="${d}" aria-label="${esc(label)}"><span class="dnum">${dt.getDate()}</span>${cds}${shown}${pubs}${logs}</button>`;
  }
  return `<div class="head"><h1>${MON[m]} ${y}</h1><div class="tools">
+ ${calViewTools()}
  <button class="btn icon" aria-label="Previous month" data-act="calMove" data-v="-1">${ic('left')}</button>
  <button class="btn" data-act="calToday">Today</button>
  <button class="btn icon" aria-label="Next month" data-act="calMove" data-v="1">${ic('right')}</button>
@@ -1566,7 +1618,7 @@ const A={
   S.modal=null;commit();toast('Removed from log')},
  starOpen(){openModal({type:'star'})},
  starRemove({id}){const e=D.events.find(x=>x.id===id);if(e)e.star=false;commit();toast('Removed from starred dates')},
- starGo({v}){const d=pd(v);S.cal={y:d.getFullYear(),m:d.getMonth()};S.view='calendar';S.modal={type:'day',date:v};render()},
+ starGo({v}){const d=pd(v);S.cal={y:d.getFullYear(),m:d.getMonth()};S.wk=sunOf(v);S.view='calendar';S.modal={type:'day',date:v};render()},
  logF({v}){S.logf=v;render()},
  toggleSec({v}){S.open[v]=!S.open[v];render()},
  mSet({k,v}){S.modal[k]=v;S.modal.err='';renderModal()},
@@ -1635,8 +1687,9 @@ const A={
  mulligan(){const m=S.modal;const {src,pool}=cardPool();if(src!==m.src){m.src=src;m.seen=[]}let opts=pool.filter(id=>!m.seen.includes(id));if(!opts.length){m.seen=[m.cur];opts=pool.filter(id=>id!==m.cur)}if(!opts.length)return;m.cur=opts[Math.floor(Math.random()*opts.length)];m.seen.push(m.cur);renderModal()},
  playCard(){const m=S.modal;if(m.src!=='active'){const p=proj(m.cur);if(!p)return closeModal();p.status='active';if(!epsOf(p.id).length)newEp(p,p.kind==='series'?(p.startNum||1):1);S.modal={type:'project',id:p.id};commit();toast('Started '+p.title);return}const e=ep(m.cur);if(!e)return closeModal();openModal({type:'project',id:e.projectId})},
  /* calendar */
- calMove({v}){let {y,m}=S.cal;m+=Number(v);if(m<0){m=11;y--}if(m>11){m=0;y++}S.cal={y,m};render()},
- calToday(){const d=new Date();S.cal={y:d.getFullYear(),m:d.getMonth()};render()},
+ calView({v}){if(v===S.calView)return;if(v==='week'){const t=today(),f=ds(new Date(S.cal.y,S.cal.m,1));S.wk=(t.slice(0,7)===f.slice(0,7))?sunOf(t):sunOf(f)}else{const mid=pd(addD(S.wk||sunOf(today()),3));S.cal={y:mid.getFullYear(),m:mid.getMonth()}}S.calView=v;try{localStorage.setItem('wb-calview',v)}catch(e){}render()},
+ calMove({v}){if(S.calView==='week'){S.wk=addD(S.wk||sunOf(today()),7*Number(v));render();return}let {y,m}=S.cal;m+=Number(v);if(m<0){m=11;y--}if(m>11){m=0;y++}S.cal={y,m};render()},
+ calToday(){const d=new Date();S.cal={y:d.getFullYear(),m:d.getMonth()};S.wk=sunOf(today());render()},
  evDone({id,v}){const e=D.events.find(x=>x.id===id);if(!e)return;const a=e.doneDates=e.doneDates||[];const at=e.doneAt=e.doneAt||{};const i=a.indexOf(v);if(i<0){a.push(v);at[v]=Date.now()}else{a.splice(i,1);delete at[v]}commit()},
  dayOpen({v}){openModal({type:'day',date:v})},
  eventNew({v}){openModal({type:'event',id:null,title:'',date:v||today(),time:'',tag:'',repeat:'',every:'week',until:'',note:'',star:'',back:S.modal&&S.modal.type==='day'?S.modal:null})},
@@ -1690,7 +1743,7 @@ const A={
  noteEdit({id}){const n=D.notes.find(x=>x.id===id);openModal({type:'noteEdit',id,text:n.text})},
  noteSave(){const m=S.modal;const n=D.notes.find(x=>x.id===m.id);const t=(m.text||'').trim();if(t){n.text=t;n.updated=Date.now()}S.modal=null;commit()},
  bkLater(){try{localStorage.setItem('wb-bk-snooze',String(Date.now()+3*864e5))}catch(e){}render()},
- evSeeCal(){const m=S.modal;const e=D.events.find(x=>x.id===m.id);if(!e)return;const t=today();let d=m.occ||e.date;if(!m.occ&&e.recur){d=occ(e,t,addD(t,800))[0]||occ(e,e.date,t).pop()||e.date}const dt=pd(d);S.modal=null;S.view='calendar';S.cal={y:dt.getFullYear(),m:dt.getMonth()};render();A.dayOpen({v:d})},
+ evSeeCal(){const m=S.modal;const e=D.events.find(x=>x.id===m.id);if(!e)return;const t=today();let d=m.occ||e.date;if(!m.occ&&e.recur){d=occ(e,t,addD(t,800))[0]||occ(e,e.date,t).pop()||e.date}const dt=pd(d);S.modal=null;S.view='calendar';S.cal={y:dt.getFullYear(),m:dt.getMonth()};S.wk=sunOf(d);render();A.dayOpen({v:d})},
  consGo({id}){if(S.modal)S.modal=null;S.view='reading';S.rdTab='consider';render();requestAnimationFrame(()=>{const el=document.getElementById('cons-'+id);if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800)}})},
  todayMove({v}){const t=today();if(+v===0)S.todayD=null;else{const d=addD(S.todayD||t,+v);S.todayD=d===t?null:d}render();window.scrollTo(0,0)},
  todayDraw(){const {src,pool}=cardPool();const C=S.tCard;let opts=pool.filter(id=>!C||id!==C.id);if(!opts.length)opts=pool;if(!opts.length)return;S.tCard={src,id:opts[Math.floor(Math.random()*opts.length)]};render()},
