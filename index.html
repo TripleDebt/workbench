@@ -425,6 +425,15 @@ button,a,label,select,input,textarea{touch-action:manipulation}
  .cal.week .dnum{width:30px;height:30px;font-size:15px}
  .cal.week .ev{font-size:14px}
 }
+
+/* phones: "what happened" rows (Selah, looking back) line up on the icon; time sits above the text instead of a blank column */
+@media (max-width:820px){
+ .uprow.static{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:12px;row-gap:2px;align-items:center}
+ .uprow.static .utime{grid-column:2;grid-row:1;width:auto;line-height:1.2}
+ .uprow.static .utime:empty{display:none}
+ .uprow.static .dot,.uprow.static .uic{grid-column:1;grid-row:1/span 2;justify-self:center;margin:0}
+ .uprow.static .utitle{grid-column:2}
+}
 </style>
 </head>
 <body>
