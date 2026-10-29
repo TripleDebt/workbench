@@ -501,6 +501,17 @@ h3 .epn{margin-left:8px}
 /* countdowns: ended */
 .cd .cde{font:600 11.5px/1.2 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--inkm)}
 
+/* to-do: reorder mode */
+.items li.ro{gap:8px;padding:4px 10px 4px 6px;background:transparent;user-select:none;-webkit-user-select:none}
+.items li.ro .rotext{flex:1;min-width:0;overflow-wrap:anywhere}
+.rohandle{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:#8C7352;cursor:grab;touch-action:none;border-radius:6px}
+.rohandle:active{cursor:grabbing}
+.items li.ro.dragging{opacity:.45}.items li.ro.drop-b{box-shadow:inset 0 3px 0 var(--accent)}.items li.ro.drop-a{box-shadow:inset 0 -3px 0 var(--accent)}
+.items li.rogrp{min-height:0;padding:12px 18px 4px;border-top:0;font:600 11.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--inkm)}
+.items li.rogrp+li.ro{border-top:0}
+.robar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--div)}.robar .hint{margin:0 auto 0 0}
+.iconbtn:disabled{opacity:.3;cursor:default}
+
 /* calendar: week view */
 .calvw{gap:0}.calvw .chip{border-radius:0;min-height:40px}.calvw .chip:first-child{border-radius:999px 0 0 999px}.calvw .chip:last-child{border-radius:0 999px 999px 0;margin-left:-1px}
 .cal.week .cell{min-height:380px;padding:8px 8px 10px;gap:5px}
@@ -553,7 +564,7 @@ plus:'<path d="M12 5v14M5 12h14"/>',
 card:'<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 3l-4 1.5 4 15"/>',
 sched:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 14v3l2 1"/>',
 clap:'<path d="M4 10h16v10H4z"/><path d="M4 10l1.5-5.5 15 0L19 10M9 4.5L7.5 10M14 4.5L12.5 10"/>',
-left:'<path d="M15 6l-6 6 6 6"/>',right:'<path d="M9 6l6 6-6 6"/>',down:'<path d="M6 9l6 6 6-6"/>',menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',qn:'<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M12 10v8M8 14h8"/>',cross:'<path d="M12 3v18M6.5 8.5h11"/>',tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+left:'<path d="M15 6l-6 6 6 6"/>',right:'<path d="M9 6l6 6-6 6"/>',down:'<path d="M6 9l6 6 6-6"/>',menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',grip:'<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',up:'<path d="M6 15l6-6 6 6"/>',qn:'<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M12 10v8M8 14h8"/>',cross:'<path d="M12 3v18M6.5 8.5h11"/>',tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
 check:'<path d="M5 12l5 5 9-10"/>',undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
 x:'<path d="M6 6l12 12M18 6L6 18"/>',edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',log:'<path d="M5 12l5 5 9-10"/><path d="M3 21h18"/>',flag:'<path d="M5 21V4h11l-1.5 4L16 12H5"/>',star:'<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9z"/>'
 };
@@ -1404,12 +1415,20 @@ function vLists(){
  const head=`<div class="head"><h1>To-Do Lists</h1><div class="tools"><button class="btn" data-act="listNew">${ic('plus')}<span>New list</span></button></div></div>`;
  if(!cur)return head+'<div class="empty-dark">No lists yet.</div>';
  const open=cur.items.filter(i=>!i.done).sort(byPri),done=[];
+ const RO=S.ro&&S.ro.lid===cur.id?S.ro:null;
+ if(RO){const byId=Object.fromEntries(cur.items.map(i=>[i.id,i]));RO.ids=RO.ids.filter(id=>byId[id]&&!byId[id].done);open.forEach(i=>{if(!RO.ids.includes(i.id))RO.ids.push(i.id)})}
  const li=i=>`<li class="${i.done?'done':''}"><label><input type="checkbox" ${i.done?'checked':''} data-chg="itemToggle" data-id="${cur.id}" data-i="${i.id}"><span>${esc(i.text)}</span>${priBadge(i)}</label><button class="iconbtn" aria-label="Edit item" data-act="itemEdit" data-id="${cur.id}" data-i="${i.id}">${ic('edit',16)}</button><button class="iconbtn" aria-label="Remove item" data-act="itemDel" data-id="${cur.id}" data-i="${i.id}">${ic('x',16)}</button></li>`;
  return head+`<div class="chips dark" style="margin-bottom:18px">${L.map(l=>`<button class="chip" data-act="listPick" data-id="${l.id}" aria-pressed="${l.id===cur.id}">${esc(l.name)}</button>`).join('')}</div>
- <div class="panel"><div class="sec-h" style="padding:16px 18px 0;margin:0"><h2>${esc(cur.name)}</h2><div class="tools"><button class="btn sm" data-act="listEdit" data-id="${cur.id}">${ic('edit',15)}Rename</button></div></div>
- <ul class="items" style="margin-top:8px">${open.length?open.map(li).join(''):'<li class="empty" style="display:block">Nothing left on this list.</li>'}</ul>
- <div class="addrow"><input type="text" id="newItem" placeholder="Add an item" aria-label="Add an item" data-enter="itemAdd" data-id="${cur.id}"><button class="btn primary" data-act="itemAdd" data-id="${cur.id}">Add</button></div></div>`+vMaster();
+ <div class="panel"><div class="sec-h" style="padding:16px 18px 0;margin:0"><h2>${esc(cur.name)}</h2><div class="tools">${RO?`<button class="btn sm" data-act="roCancel">Cancel</button><button class="btn sm primary" data-act="roSave">Save</button>`:`${open.length>1?`<button class="btn sm" data-act="roStart" data-id="${cur.id}">${ic('grip',15)}Reorder</button>`:''}<button class="btn sm" data-act="listEdit" data-id="${cur.id}">${ic('edit',15)}Rename</button>`}</div></div>
+ ${RO?roHTML(cur,RO):`<ul class="items" style="margin-top:8px">${open.length?open.map(li).join(''):'<li class="empty" style="display:block">Nothing left on this list.</li>'}</ul>
+ <div class="addrow"><input type="text" id="newItem" placeholder="Add an item" aria-label="Add an item" data-enter="itemAdd" data-id="${cur.id}"><button class="btn primary" data-act="itemAdd" data-id="${cur.id}">Add</button></div>`}</div>`+vMaster();
 }
+/* reorder mode: drag (or use the arrows) within each priority, then Save */
+function roHTML(cur,RO){const byId=Object.fromEntries(cur.items.map(i=>[i.id,i]));const L=RO.ids.map(id=>byId[id]);const groups=[...new Set(L.map(priOf))];const multi=groups.length>1;
+ let out='',last=null;L.forEach((i,k)=>{const p=priOf(i);if(multi&&p!==last){out+=`<li class="rogrp">${{high:'High',normal:'Normal',low:'Low'}[p]}</li>`;last=p}
+  const up=k>0&&priOf(L[k-1])===p,dn=k<L.length-1&&priOf(L[k+1])===p;
+  out+=`<li class="ro" data-ro="${i.id}" data-pri="${p}"><span class="rohandle" aria-hidden="true" title="Drag to move">${ic('grip',20)}</span><span class="rotext">${esc(i.text)}</span><button class="iconbtn" aria-label="Move ${esc(i.text)} up" data-act="roMove" data-i="${i.id}" data-v="-1" ${up?'':'disabled'}>${ic('up',16)}</button><button class="iconbtn" aria-label="Move ${esc(i.text)} down" data-act="roMove" data-i="${i.id}" data-v="1" ${dn?'':'disabled'}>${ic('down',16)}</button></li>`});
+ return `<ul class="items" style="margin-top:8px" id="rolist">${out}</ul><div class="robar"><p class="hint">Drag items to reorder them. Each item stays within its priority.</p><button class="btn sm" data-act="roCancel">Cancel</button><button class="btn sm primary" data-act="roSave">Save</button></div>`}
 function vMaster(){
  const L=D.lists;const f=(S.mlf||[]).filter(id=>L.some(l=>l.id===id));
  const shown=L.filter(l=>!f.length||f.includes(l.id));
@@ -1856,7 +1875,7 @@ function vSettings(){
 /* ---------- actions ---------- */
 const A={
  noop(){},closeModal,
- go({v}){const from=S.view;navFx={to:v,from:from!==v?from:null};S.view=v;S.modal=null;S.menu=false;render();navFx=null;window.scrollTo(0,0)},
+ go({v}){if(v!=='lists')S.ro=null;const from=S.view;navFx={to:v,from:from!==v?from:null};S.view=v;S.modal=null;S.menu=false;render();navFx=null;window.scrollTo(0,0)},
  menuT(){S.menu=!S.menu;render();if(S.menu){const c=document.querySelector('nav.side [aria-current=page]');if(c)c.focus({preventScroll:true})}else{const b=document.querySelector('.mmenu');if(b)b.focus({preventScroll:true})}},
  logEdit({k,id,v}){let m={type:'logEntry',narrow:true,k,id,v};
   if(k==='session'){const l=D.logs.find(x=>x.id===id);if(!l)return;Object.assign(m,{date:l.date,time:hm(l.at),text:l.text||'',finished:l.finished?'1':'',stage:l.stage})}
@@ -2033,7 +2052,7 @@ const A={
  cdEndDo(){const m=S.modal;const c=D.countdowns.find(x=>x.id===m.id);if(!c)return closeModal();const nx=cdNext(c,today());const u=addD(nx,-1);S.modal=null;if(u<c.date){delUndo(D.countdowns,x=>x.id===m.id,'Countdown deleted');return}c.until=u;commit();toast('Stopped. Past years stay on the calendar')},
  cdDelAll(){const m=S.modal;S.modal=null;delUndo(D.countdowns,x=>x.id===m.id,'Countdown deleted')},
  /* lists */
- listPick({id}){S.listId=id;render()},
+ listPick({id}){S.listId=id;S.ro=null;render()},
  listGo({id}){S.listId=id;S.view='lists';render()},
  listNew(){openModal({type:'list',narrow:true,id:null,name:''})},
  listEdit({id}){openModal({type:'list',narrow:true,id,name:D.lists.find(l=>l.id===id).name})},
@@ -2043,6 +2062,10 @@ const A={
  itemUndo({id,i}){const l=D.lists.find(x=>x.id===id);const it=l&&l.items.find(x=>x.id===i);if(!it)return;it.done=false;delete it.doneAt;D.history=(D.history||[]).filter(h=>h.itemId!==it.id);commit();toast('Back on '+l.name)},
  mlFilter({id}){if(!id){S.mlf=[];return render()}const f=S.mlf=S.mlf||[];const i=f.indexOf(id);if(i<0)f.push(id);else f.splice(i,1);render()},
  itemAdd({id}){const inp=document.getElementById('newItem');const t=(inp.value||'').trim();if(!t)return;D.lists.find(l=>l.id===id).items.push({id:uid(),text:t,done:false});commit();const n=document.getElementById('newItem');if(n)n.focus()},
+ roStart({id}){const l=D.lists.find(x=>x.id===id);if(!l)return;S.ro={lid:id,ids:l.items.filter(i=>!i.done).sort(byPri).map(i=>i.id)};render()},
+ roCancel(){S.ro=null;render()},
+ roMove({i,v}){const R=S.ro;if(!R)return;const a=R.ids,k=a.indexOf(i),j=k+Number(v);const l=D.lists.find(x=>x.id===R.lid);const P=id=>priOf(l.items.find(x=>x.id===id));if(k<0||j<0||j>=a.length||P(a[j])!==P(i))return;[a[k],a[j]]=[a[j],a[k]];render();const b=document.querySelector(`[data-act=roMove][data-i="${i}"][data-v="${v}"]`);if(b&&!b.disabled)b.focus();else{const o=document.querySelector(`[data-act=roMove][data-i="${i}"]:not(:disabled)`);if(o)o.focus()}},
+ roSave(){const R=S.ro;if(!R)return;const l=D.lists.find(x=>x.id===R.lid);S.ro=null;if(!l)return render();const byId=Object.fromEntries(l.items.map(i=>[i.id,i]));const open=R.ids.map(id=>byId[id]).filter(i=>i&&!i.done);const rest=l.items.filter(i=>!open.includes(i));const nw=[...open,...rest];if(nw.some((x,k)=>x!==l.items[k])){l.items=nw;commit();toast('Order saved')}else render()},
  itemEdit({id,i}){const l=D.lists.find(x=>x.id===id);const it=l&&l.items.find(x=>x.id===i);if(!it)return;openModal({type:'itemEdit',narrow:true,lid:id,iid:i,text:it.text,pri:priOf(it)})},
  itemSave(){const m=S.modal;const l=D.lists.find(x=>x.id===m.lid);const it=l&&l.items.find(x=>x.id===m.iid);if(!it){S.modal=null;return render()}const t=(m.text||'').trim();if(!t){m.err='The item needs some text.';return renderModal()}it.text=t;if(m.pri==='high'||m.pri==='low')it.pri=m.pri;else delete it.pri;S.modal=null;commit()},
  itemDelM(){const m=S.modal;const l=D.lists.find(x=>x.id===m.lid);const it=l&&l.items.find(x=>x.id===m.iid);if(!it)return;askDel('Delete “'+short(it.text)+'”?','This removes it from '+l.name+'.',()=>delUndo(l.items,x=>x.id===m.iid,'Item deleted'),{small:true,back:m})},
@@ -2210,6 +2233,16 @@ document.addEventListener('dragstart',e=>{const r=e.target.closest&&e.target.clo
 document.addEventListener('dragover',e=>{const r=e.target.closest&&e.target.closest('[data-drag]');if(!r||!S.dragId)return;e.preventDefault();document.querySelectorAll('.drop-a,.drop-b').forEach(x=>x.classList.remove('drop-a','drop-b'));const bx=r.getBoundingClientRect();r.classList.add(e.clientY<bx.top+bx.height/2?'drop-b':'drop-a')});
 document.addEventListener('drop',e=>{const r=e.target.closest&&e.target.closest('[data-drag]');if(!r||!S.dragId)return;e.preventDefault();const tb=rawBook(r.dataset.drag),db=rawBook(S.dragId);const before=r.classList.contains('drop-b');S.dragId=null;if(!tb||!db||tb===db)return render();
  let pos=tb.order+(before?0:1);if(db.track===tb.track&&db.order<tb.order)pos--;moveBook(db.id,tb.track,pos)});
+let rodrag=null;
+document.addEventListener('pointerdown',e=>{const h=e.target.closest&&e.target.closest('.rohandle');if(!h||!S.ro)return;const r=h.closest('li.ro');if(!r)return;e.preventDefault();rodrag={id:r.dataset.ro,pri:r.dataset.pri,row:r,pid:e.pointerId,target:null,before:false};r.classList.add('dragging');try{h.setPointerCapture(e.pointerId)}catch(x){}},true);
+document.addEventListener('pointermove',e=>{if(!rodrag||e.pointerId!==rodrag.pid)return;e.preventDefault();document.querySelectorAll('li.ro.drop-a,li.ro.drop-b').forEach(x=>x.classList.remove('drop-a','drop-b'));rodrag.target=null;
+ const el=document.elementFromPoint(e.clientX,e.clientY);let r=el&&el.closest&&el.closest('li.ro');
+ if(!r){const rows=[...document.querySelectorAll('#rolist li.ro[data-pri="'+rodrag.pri+'"]')];if(rows.length){const f=rows[0].getBoundingClientRect(),l=rows[rows.length-1].getBoundingClientRect();if(e.clientY<f.top)r=rows[0];else if(e.clientY>l.bottom)r=rows[rows.length-1]}}
+ if(r&&r!==rodrag.row&&r.dataset.pri===rodrag.pri){const bx=r.getBoundingClientRect();rodrag.before=e.clientY<bx.top+bx.height/2;r.classList.add(rodrag.before?'drop-b':'drop-a');rodrag.target=r}
+ const se=document.scrollingElement||document.documentElement;if(e.clientY<80)se.scrollBy(0,-14);else if(e.clientY>innerHeight-80)se.scrollBy(0,14)},{passive:false});
+document.addEventListener('pointerup',e=>{if(!rodrag||e.pointerId!==rodrag.pid)return;const t=rodrag;rodrag=null;document.querySelectorAll('li.ro.dragging,li.ro.drop-a,li.ro.drop-b').forEach(x=>x.classList.remove('dragging','drop-a','drop-b'));if(!t.target||!S.ro)return;
+ const a=S.ro.ids;const from=a.indexOf(t.id);a.splice(from,1);let to=a.indexOf(t.target.dataset.ro);if(!t.before)to++;a.splice(to,0,t.id);render()});
+document.addEventListener('pointercancel',e=>{if(rodrag&&e.pointerId===rodrag.pid){rodrag=null;document.querySelectorAll('li.ro.dragging,li.ro.drop-a,li.ro.drop-b').forEach(x=>x.classList.remove('dragging','drop-a','drop-b'))}});
 let tdrag=null;
 const tdClear=()=>document.querySelectorAll('.dragging,.drop-a,.drop-b').forEach(x=>x.classList.remove('dragging','drop-a','drop-b'));
 document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;const h=e.target.closest&&e.target.closest('.ehandle');if(!h)return;const r=h.closest('[data-drag]');if(!r)return;e.preventDefault();tdrag={id:r.dataset.drag,row:r,pid:e.pointerId,target:null,before:false};r.classList.add('dragging');try{h.setPointerCapture(e.pointerId)}catch(x){}},true);
