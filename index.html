@@ -678,6 +678,7 @@ function describeChange(A,B){
  for(const id in nB){if(!nA[id])add('Added note '+qq(nB[id].text));else if(J(nA[id])!==J(nB[id]))add('Edited note '+qq(nB[id].text))}
  for(const id in nA)if(!nB[id])add('Deleted note '+qq(nA[id].text));
  if(out.length)return out[0];
+ if(J(A.todoOrder)!==J(B.todoOrder)&&J(A.lists)===J(B.lists))return 'Reordered to-do items';
  const LA=idMap(A.lists),LB=idMap(B.lists);
  for(const id in LB){const o=LA[id],n=LB[id];if(!o){add('Added list '+qq(n.name));continue}if(J(o)===J(n))continue;
   if(o.name!==n.name){add('Renamed list '+qq(o.name)+' to '+qq(n.name));continue}
@@ -1409,12 +1410,18 @@ function mPsManage(){const SS=praySecs();return `<h2>Prayer sections</h2><p clas
 /* ---------- lists ---------- */
 const PRI={high:0,normal:1,low:2};const priOf=i=>i.pri==='high'||i.pri==='low'?i.pri:'normal';
 const byPri=(a,b)=>PRI[priOf(a)]-PRI[priOf(b)];
+function todoKey(){const m=new Map();(D.todoOrder||[]).forEach((id,k)=>{if(!m.has(id))m.set(id,k)});D.lists.forEach((l,li)=>l.items.forEach((i,ii)=>{if(!m.has(i.id))m.set(i.id,1e6+li*1e4+ii)}));return m}
+const byTodo=K=>(a,b)=>byPri(a,b)||K.get(a.id)-K.get(b.id);
+const itemRef=id=>{for(const l of D.lists){const i=l.items.find(x=>x.id===id);if(i)return {l,i}}return null};
+function allOpenOrdered(){const K=todoKey();return D.lists.flatMap(l=>l.items.filter(i=>!i.done)).sort(byTodo(K)).map(i=>i.id)}
+/* rebuild the shared order: the reordered items take their new order, and every other item stays right after the item it followed before */
+function applyOrder(ids){const F=allOpenOrdered();const set=new Set(ids);const after=new Map();let prev=null;for(const id of F){if(set.has(id))prev=id;else{if(!after.has(prev))after.set(prev,[]);after.get(prev).push(id)}}const out=[...(after.get(null)||[])];for(const id of ids){out.push(id,...(after.get(id)||[]))}const changed=JSON.stringify(out)!==JSON.stringify(F);D.todoOrder=out;return changed}
 const priBadge=i=>i.pri==='high'?'<span class="pri hi">High</span>':i.pri==='low'?'<span class="pri lo">Low</span>':'';
 function vLists(){
  const L=D.lists;const cur=L.find(l=>l.id===S.listId)||L[0];
  const head=`<div class="head"><h1>To-Do Lists</h1><div class="tools"><button class="btn" data-act="listNew">${ic('plus')}<span>New list</span></button></div></div>`;
  if(!cur)return head+'<div class="empty-dark">No lists yet.</div>';
- const open=cur.items.filter(i=>!i.done).sort(byPri),done=[];
+ const open=cur.items.filter(i=>!i.done).sort(byTodo(todoKey())),done=[];
  const RO=S.ro&&S.ro.lid===cur.id?S.ro:null;
  if(RO){const byId=Object.fromEntries(cur.items.map(i=>[i.id,i]));RO.ids=RO.ids.filter(id=>byId[id]&&!byId[id].done);open.forEach(i=>{if(!RO.ids.includes(i.id))RO.ids.push(i.id)})}
  const li=i=>`<li class="${i.done?'done':''}"><label><input type="checkbox" ${i.done?'checked':''} data-chg="itemToggle" data-id="${cur.id}" data-i="${i.id}"><span>${esc(i.text)}</span>${priBadge(i)}</label><button class="iconbtn" aria-label="Edit item" data-act="itemEdit" data-id="${cur.id}" data-i="${i.id}">${ic('edit',16)}</button><button class="iconbtn" aria-label="Remove item" data-act="itemDel" data-id="${cur.id}" data-i="${i.id}">${ic('x',16)}</button></li>`;
@@ -1424,21 +1431,24 @@ function vLists(){
  <div class="addrow"><input type="text" id="newItem" placeholder="Add an item" aria-label="Add an item" data-enter="itemAdd" data-id="${cur.id}"><button class="btn primary" data-act="itemAdd" data-id="${cur.id}">Add</button></div>`}</div>`+vMaster();
 }
 /* reorder mode: drag (or use the arrows) within each priority, then Save */
-function roHTML(cur,RO){const byId=Object.fromEntries(cur.items.map(i=>[i.id,i]));const L=RO.ids.map(id=>byId[id]);const groups=[...new Set(L.map(priOf))];const multi=groups.length>1;
- let out='',last=null;L.forEach((i,k)=>{const p=priOf(i);if(multi&&p!==last){out+=`<li class="rogrp">${{high:'High',normal:'Normal',low:'Low'}[p]}</li>`;last=p}
-  const up=k>0&&priOf(L[k-1])===p,dn=k<L.length-1&&priOf(L[k+1])===p;
-  out+=`<li class="ro" data-ro="${i.id}" data-pri="${p}"><span class="rohandle" aria-hidden="true" title="Drag to move">${ic('grip',20)}</span><span class="rotext">${esc(i.text)}</span><button class="iconbtn" aria-label="Move ${esc(i.text)} up" data-act="roMove" data-i="${i.id}" data-v="-1" ${up?'':'disabled'}>${ic('up',16)}</button><button class="iconbtn" aria-label="Move ${esc(i.text)} down" data-act="roMove" data-i="${i.id}" data-v="1" ${dn?'':'disabled'}>${ic('down',16)}</button></li>`});
- return `<ul class="items" style="margin-top:8px" id="rolist">${out}</ul><div class="robar"><p class="hint">Drag items to reorder them. Each item stays within its priority.</p><button class="btn sm" data-act="roCancel">Cancel</button><button class="btn sm primary" data-act="roSave">Save</button></div>`}
+function roHTML(cur,RO){const all=RO.lid==='*';const L=RO.ids.map(id=>itemRef(id)).filter(Boolean);const groups=[...new Set(L.map(r=>priOf(r.i)))];const multi=groups.length>1;
+ let out='',last=null;L.forEach(({l,i},k)=>{const p=priOf(i);if(multi&&p!==last){out+=`<li class="rogrp">${{high:'High',normal:'Normal',low:'Low'}[p]}</li>`;last=p}
+  const up=k>0&&priOf(L[k-1].i)===p,dn=k<L.length-1&&priOf(L[k+1].i)===p;
+  out+=`<li class="ro" data-ro="${i.id}" data-pri="${p}"><span class="rohandle" aria-hidden="true" title="Drag to move">${ic('grip',20)}</span><span class="rotext">${esc(i.text)}</span>${all?`<span class="lbadge">${esc(l.name)}</span>`:''}<button class="iconbtn" aria-label="Move ${esc(i.text)} up" data-act="roMove" data-i="${i.id}" data-v="-1" ${up?'':'disabled'}>${ic('up',16)}</button><button class="iconbtn" aria-label="Move ${esc(i.text)} down" data-act="roMove" data-i="${i.id}" data-v="1" ${dn?'':'disabled'}>${ic('down',16)}</button></li>`});
+ return `<ul class="items" style="margin-top:8px" id="rolist">${out}</ul><div class="robar"><p class="hint">Drag items to reorder them. Each item stays within its priority${all?', and each list keeps the same order':''}.</p><button class="btn sm" data-act="roCancel">Cancel</button><button class="btn sm primary" data-act="roSave">Save</button></div>`}
 function vMaster(){
  const L=D.lists;const f=(S.mlf||[]).filter(id=>L.some(l=>l.id===id));
  const shown=L.filter(l=>!f.length||f.includes(l.id));
- const open=shown.flatMap(l=>l.items.filter(i=>!i.done).map(i=>({l,i}))).sort((a,b)=>byPri(a.i,b.i));
+ const K=todoKey();const open=shown.flatMap(l=>l.items.filter(i=>!i.done).map(i=>({l,i}))).sort((a,b)=>byTodo(K)(a.i,b.i));
+ const RA=S.ro&&S.ro.lid==='*'?S.ro:null;
+ if(RA){const ok=new Set(open.map(x=>x.i.id));RA.ids=RA.ids.filter(id=>ok.has(id));open.forEach(x=>{if(!RA.ids.includes(x.i.id))RA.ids.push(x.i.id)})}
  const comp=L.flatMap(l=>l.items.filter(i=>i.done).map(i=>({l,i}))).sort((a,b)=>(b.i.doneAt||0)-(a.i.doneAt||0));
  const li=({l,i})=>`<li><label><input type="checkbox" data-chg="itemToggle" data-id="${l.id}" data-i="${i.id}"><span>${esc(i.text)}</span>${priBadge(i)}<span class="lbadge"${i.pri==='high'||i.pri==='low'?'':' style="margin-left:auto"'}>${esc(l.name)}</span></label><button class="iconbtn" aria-label="Edit item" data-act="itemEdit" data-id="${l.id}" data-i="${i.id}">${ic('edit',16)}</button><button class="iconbtn" aria-label="Remove item" data-act="itemDel" data-id="${l.id}" data-i="${i.id}">${ic('x',16)}</button></li>`;
  const ci=({l,i})=>`<li class="done"><button class="undone" data-act="itemUndo" data-id="${l.id}" data-i="${i.id}" title="Not completed? Put it back on ${esc(l.name)}">${ic('check',14)}</button><span class="ctext"><span class="cname">${esc(i.text)}</span><span class="lbadge">${esc(l.name)}</span></span><button class="iconbtn undoic" aria-label="Undo: put back on ${esc(l.name)}" title="Undo: put back on ${esc(l.name)}" data-act="itemUndo" data-id="${l.id}" data-i="${i.id}">${ic('undo',17)}</button><button class="iconbtn" aria-label="Remove item" data-act="itemDel" data-id="${l.id}" data-i="${i.id}">${ic('x',16)}</button></li>`;
  const ao=S.open.allItems!==false;
  return `<div class="sec" style="margin-top:34px"><button class="toggle-h" data-act="toggleSec" data-v="allItems" aria-expanded="${ao}"><h2>All items</h2><span class="count">${open.length} ${ao?'· Hide':'· Show'}</span></button></div>
- ${ao?`<div class="panel" style="margin-top:12px"><div style="padding:16px 18px 0"><div class="chips">${L.map(l=>`<button class="chip" data-act="mlFilter" data-id="${l.id}" aria-pressed="${f.includes(l.id)}">${esc(l.name)} <span class="kind">${l.items.filter(i=>!i.done).length}</span></button>`).join('')}${f.length?'<button class="chip" data-act="mlFilter" data-id="">Show all</button>':''}</div></div>
+ ${ao&&RA?`<div class="panel" style="margin-top:12px"><div class="sec-h" style="padding:16px 18px 0;margin:0"><h2 style="font-size:18px">${f.length?esc(shown.map(l=>l.name).join(' + ')):'All lists'}</h2><div class="tools"><button class="btn sm" data-act="roCancel">Cancel</button><button class="btn sm primary" data-act="roSave">Save</button></div></div>${roHTML(null,RA)}</div>`:''}
+ ${ao&&!RA?`<div class="panel" style="margin-top:12px"><div style="padding:16px 18px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start"><div class="chips" style="flex:1 1 240px">${L.map(l=>`<button class="chip" data-act="mlFilter" data-id="${l.id}" aria-pressed="${f.includes(l.id)}">${esc(l.name)} <span class="kind">${l.items.filter(i=>!i.done).length}</span></button>`).join('')}${f.length?'<button class="chip" data-act="mlFilter" data-id="">Show all</button>':''}</div>${open.length>1?`<button class="btn sm" data-act="roStartAll">${ic('grip',15)}Reorder</button>`:''}</div>
  <ul class="items" style="margin-top:8px">${open.length?open.map(li).join(''):`<li class="empty" style="display:block">${f.length?'Nothing on these lists.':'Nothing on your lists.'}</li>`}</ul></div>`:''}
  <div class="sec">${`<button class="toggle-h" data-act="toggleSec" data-v="compItems" aria-expanded="${!!S.open.compItems}"><h2>Completed Items</h2><span class="count">${comp.length} ${S.open.compItems?'· Hide':'· Show'}</span></button>`}${S.open.compItems?(comp.length?`<div class="panel" style="margin-top:12px"><ul class="items">${comp.map(ci).join('')}</ul></div>`:'<div class="empty-dark">Items you check off will move here.</div>'):''}</div>`;
 }
@@ -2062,10 +2072,14 @@ const A={
  itemUndo({id,i}){const l=D.lists.find(x=>x.id===id);const it=l&&l.items.find(x=>x.id===i);if(!it)return;it.done=false;delete it.doneAt;D.history=(D.history||[]).filter(h=>h.itemId!==it.id);commit();toast('Back on '+l.name)},
  mlFilter({id}){if(!id){S.mlf=[];return render()}const f=S.mlf=S.mlf||[];const i=f.indexOf(id);if(i<0)f.push(id);else f.splice(i,1);render()},
  itemAdd({id}){const inp=document.getElementById('newItem');const t=(inp.value||'').trim();if(!t)return;D.lists.find(l=>l.id===id).items.push({id:uid(),text:t,done:false});commit();const n=document.getElementById('newItem');if(n)n.focus()},
- roStart({id}){const l=D.lists.find(x=>x.id===id);if(!l)return;S.ro={lid:id,ids:l.items.filter(i=>!i.done).sort(byPri).map(i=>i.id)};render()},
+ roStart({id}){const l=D.lists.find(x=>x.id===id);if(!l)return;S.ro={lid:id,ids:l.items.filter(i=>!i.done).sort(byTodo(todoKey())).map(i=>i.id)};render()},
+ roStartAll(){const f=(S.mlf||[]).filter(id=>D.lists.some(l=>l.id===id));const K=todoKey();S.ro={lid:'*',ids:D.lists.filter(l=>!f.length||f.includes(l.id)).flatMap(l=>l.items.filter(i=>!i.done)).sort(byTodo(K)).map(i=>i.id)};render();const p=document.getElementById('rolist');if(p)p.scrollIntoView({block:'nearest'})},
  roCancel(){S.ro=null;render()},
- roMove({i,v}){const R=S.ro;if(!R)return;const a=R.ids,k=a.indexOf(i),j=k+Number(v);const l=D.lists.find(x=>x.id===R.lid);const P=id=>priOf(l.items.find(x=>x.id===id));if(k<0||j<0||j>=a.length||P(a[j])!==P(i))return;[a[k],a[j]]=[a[j],a[k]];render();const b=document.querySelector(`[data-act=roMove][data-i="${i}"][data-v="${v}"]`);if(b&&!b.disabled)b.focus();else{const o=document.querySelector(`[data-act=roMove][data-i="${i}"]:not(:disabled)`);if(o)o.focus()}},
- roSave(){const R=S.ro;if(!R)return;const l=D.lists.find(x=>x.id===R.lid);S.ro=null;if(!l)return render();const byId=Object.fromEntries(l.items.map(i=>[i.id,i]));const open=R.ids.map(id=>byId[id]).filter(i=>i&&!i.done);const rest=l.items.filter(i=>!open.includes(i));const nw=[...open,...rest];if(nw.some((x,k)=>x!==l.items[k])){l.items=nw;commit();toast('Order saved')}else render()},
+ roMove({i,v}){const R=S.ro;if(!R)return;const a=R.ids,k=a.indexOf(i),j=k+Number(v);const P=id=>{const r=itemRef(id);return r?priOf(r.i):''};if(k<0||j<0||j>=a.length||P(a[j])!==P(i))return;[a[k],a[j]]=[a[j],a[k]];render();const b=document.querySelector(`[data-act=roMove][data-i="${i}"][data-v="${v}"]`);if(b&&!b.disabled)b.focus();else{const o=document.querySelector(`[data-act=roMove][data-i="${i}"]:not(:disabled)`);if(o)o.focus()}},
+ roSave(){const R=S.ro;if(!R)return;S.ro=null;const ids=R.ids.filter(id=>{const r=itemRef(id);return r&&!r.i.done});
+  let changed=applyOrder(ids);
+  if(R.lid!=='*'){const l=D.lists.find(x=>x.id===R.lid);if(l){const byId=Object.fromEntries(l.items.map(i=>[i.id,i]));const open=ids.map(id=>byId[id]).filter(Boolean);const rest=l.items.filter(i=>!open.includes(i));const nw=[...open,...rest];if(nw.some((x,k)=>x!==l.items[k])){l.items=nw;changed=true}}}
+  if(changed){commit();toast('Order saved')}else render()},
  itemEdit({id,i}){const l=D.lists.find(x=>x.id===id);const it=l&&l.items.find(x=>x.id===i);if(!it)return;openModal({type:'itemEdit',narrow:true,lid:id,iid:i,text:it.text,pri:priOf(it)})},
  itemSave(){const m=S.modal;const l=D.lists.find(x=>x.id===m.lid);const it=l&&l.items.find(x=>x.id===m.iid);if(!it){S.modal=null;return render()}const t=(m.text||'').trim();if(!t){m.err='The item needs some text.';return renderModal()}it.text=t;if(m.pri==='high'||m.pri==='low')it.pri=m.pri;else delete it.pri;S.modal=null;commit()},
  itemDelM(){const m=S.modal;const l=D.lists.find(x=>x.id===m.lid);const it=l&&l.items.find(x=>x.id===m.iid);if(!it)return;askDel('Delete “'+short(it.text)+'”?','This removes it from '+l.name+'.',()=>delUndo(l.items,x=>x.id===m.iid,'Item deleted'),{small:true,back:m})},
