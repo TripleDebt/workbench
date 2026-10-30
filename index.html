@@ -411,7 +411,7 @@ button,a,label,select,input,textarea{touch-action:manipulation}
 @media (pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),textarea,select{font-size:16px!important}.erow .ehandle{display:inline-flex;padding:12px 6px 12px 2px;margin-left:-6px}.erow{gap:6px}.erow .epos{width:50px!important}}
 
 /* desktop: sidebar stays put while the page scrolls */
-@media (min-width:821px){nav.side{position:sticky;top:0;align-self:flex-start;height:100vh;height:100dvh;overflow-y:auto;overscroll-behavior:contain}}
+@media (min-width:821px){nav.side{position:fixed;top:0;left:0;bottom:0;width:240px;overflow-y:auto;overscroll-behavior:contain;z-index:20}main{margin-left:240px}}
 /* Today: tick a calendar event done from its row */
 .uprow.evrow{display:block;position:relative;padding:0}@media (hover:hover){.uprow.evrow:hover{background:transparent}}
 .evrow .evmain{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:9px 8px;min-height:44px;font:inherit;color:inherit;cursor:pointer}@media (hover:hover){.evrow .evmain:hover{background:rgba(90,65,48,.08)}}
@@ -879,7 +879,7 @@ function renderModal(){
  if(st){const ov=el.querySelector('.overlay'),md=el.querySelector('.modal');if(ov)ov.scrollTop=st[0];if(md)md.scrollTop=st[1]}
  else{const f=el.querySelector('[autofocus]');if(f)f.focus()}
 }
-function setupDeck(){const d=document.getElementById('deck');if(!d||!d.classList.contains('long'))return;const r=d.children;if(r.length<=10)return;const top=r[0].offsetTop,b=r[9].offsetTop+r[9].offsetHeight;d.style.maxHeight=(b-top+2)+'px';const upd=()=>d.classList.toggle('atend',d.scrollTop+d.clientHeight>=d.scrollHeight-4);upd();d.addEventListener('scroll',upd,{passive:true})}
+function setupDeck(){const d=document.getElementById('deck');if(!d||!d.classList.contains('long'))return;const r=d.children;if(r.length<=5)return;const top=r[0].offsetTop,b=r[4].offsetTop+r[4].offsetHeight;d.style.maxHeight=(b-top+2)+'px';const upd=()=>d.classList.toggle('atend',d.scrollTop+d.clientHeight>=d.scrollHeight-4);upd();d.addEventListener('scroll',upd,{passive:true})}
 function setupBars(){document.querySelectorAll('.nextrow').forEach((row,i)=>{const wall=row.closest('.wall');if(!wall)return;let el=row;let board=null;const all=[...wall.querySelectorAll('.board')];board=all.find(b=>row.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING);if(!board)return;
  const bar=document.createElement('div');bar.className='sbar';bar.innerHTML='<div class="thumb"></div>';board.after(bar);row._bar=bar;bar._row=row;syncBar(row);row.addEventListener('scroll',()=>syncBar(row),{passive:true});
  row.addEventListener('wheel',e=>{if(row.scrollWidth<=row.clientWidth)return;if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){row.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
@@ -1150,7 +1150,7 @@ function vToday(){
  if(isT&&!rest){
   const eps=D.episodes.filter(e=>!e.done&&proj(e.projectId)&&proj(e.projectId).status==='active');
   const line=e=>{const p=proj(e.projectId),c=chan(p.channel),l=epLabel(e);return `<button class="uprow" data-act="openProject" data-id="${p.id}"><span class="ustage">${esc(curStage(e))}</span><span class="dot" style="background:${c.color}"></span><span class="utitle">${esc(p.title+(l?' '+l:'')+(epName(e)?': '+epName(e):''))}</span></button>`};
-  const pool=cardPool().pool.length;const long=eps.length>10;
+  const pool=cardPool().pool.length;const long=eps.length>5;
   wkP=`<section class="tcard t-wk"><div class="throw"><h2 class="th">On Deck</h2>${pool?`<button class="btn sm" data-act="drawCard">${ic('card',15)}<span>Draw a Card</span></button>`:''}</div><div class="panel tpanel">${eps.length?`<div class="deck${long?' long':''}" id="deck">${eps.map(line).join('')}</div>${long?`<p class="deckmore">${eps.length} on deck · scroll the list for the rest</p>`:''}`:`<p class="hint tempty">Nothing active right now.</p>`}</div></section>`;
  }
  // past: what happened
